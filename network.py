@@ -2,29 +2,37 @@ import socket
 import threading
 import os
 
+
 from SQL import save_user
+
+
 
 
 DEFAULT_PORT = 8080
 
+
 BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
+
 
 SAVE_DIR = os.path.join(
     BASE_DIR,
     "received"
 )
 
+
 CHAT_DIR = os.path.join(
     BASE_DIR,
     "chats"
 )
 
+
 os.makedirs(
     SAVE_DIR,
     exist_ok=True
 )
+
 
 os.makedirs(
     CHAT_DIR,
@@ -32,30 +40,41 @@ os.makedirs(
 )
 
 
+
+
 class MessengerNetwork:
+
 
     def __init__(self):
         self.server = None
         self.sock = None
 
+
         self.clients = []
         self.clients_lock = threading.Lock()
+
 
         self.server_running = False
         self.client_running = False
 
+
         self.username = ""
+
 
         self.server_port = 0
 
+
         self.partner_ip = ""
         self.partner_port = 0
+
 
         self.on_message = None
         self.on_file = None
         self.on_disconnect = None
 
+
     # ================= SERVER =================
+
 
     def start_server(
         self,
@@ -63,13 +82,16 @@ class MessengerNetwork:
         port=DEFAULT_PORT
     ):
 
+
         self.username = name
         self.server_port = port
+
 
         self.server = socket.socket(
             socket.AF_INET,
             socket.SOCK_STREAM
         )
+
 
         self.server.setsockopt(
             socket.SOL_SOCKET,
@@ -77,18 +99,22 @@ class MessengerNetwork:
             1
         )
 
+
         self.server.bind(
             ("0.0.0.0", port)
         )
 
+
         self.server.listen(10)
         self.server_running = True
+
 
         thread = threading.Thread(
             target=self.accept_connections,
             daemon=True
         )
         thread.start()
+
 
     def accept_connections(self):
         while self.server_running:
@@ -101,10 +127,12 @@ class MessengerNetwork:
                     "name": ""
                 }
 
+
                 with self.clients_lock:
                     self.clients.append(
                         user
                     )
+
 
                 thread = threading.Thread(
                     target=self.handle_client,
@@ -115,10 +143,13 @@ class MessengerNetwork:
                     daemon=True
                 )
 
+
                 thread.start()
+
 
             except OSError:
                 break
+
 
             except Exception as error:
                 print(
@@ -126,7 +157,9 @@ class MessengerNetwork:
                     error
                 )
 
+
     # ================= CLIENT =================
+
 
     def connect(
         self,
@@ -135,12 +168,15 @@ class MessengerNetwork:
         name
     ):
 
+
         self.username = name
+
 
         self.sock = socket.socket(
             socket.AF_INET,
             socket.SOCK_STREAM
         )
+
 
         self.sock.connect(
             (
@@ -149,15 +185,19 @@ class MessengerNetwork:
             )
         )
 
+
         self.partner_ip = ip
         self.partner_port = int(port)
 
+
         self.client_running = True
+
 
         save_user(
             ip,
             int(port)
         )
+
 
         handshake = (
             f"USER|{name}|{self.server_port}\n"
@@ -165,9 +205,11 @@ class MessengerNetwork:
             "utf-8"
         )
 
+
         self.sock.sendall(
             handshake
         )
+
 
         thread = threading.Thread(
             target=self.receive_loop,
@@ -182,7 +224,9 @@ class MessengerNetwork:
         )
         thread.start()
 
+
     # ================= SERVER CLIENT =================
+
 
     def handle_client(
         self,
@@ -192,26 +236,32 @@ class MessengerNetwork:
         name = ""
         port = 0
 
+
         try:
             header = self.recv_line(
                 client
             )
+
 
             if header.startswith("USER|"):
                 parts = header.split(
                     "|"
                 )
 
+
                 if len(parts) >= 3:
                     name = parts[1]
+
 
                     try:
                         port = int(
                             parts[2]
                         )
 
+
                     except:
                         port = 0
+
 
             with self.clients_lock:
                 for user in self.clients:
@@ -220,32 +270,41 @@ class MessengerNetwork:
                         user["port"] = port
                         break
 
+
             if port > 0:
+
 
                 save_user(
                     address[0],
                     port
                 )
 
+
             while self.server_running:
+
 
                 header = self.recv_line(
                     client
                 )
 
+
                 if not header:
                     break
 
+
                 # ---------- MESSAGE ----------
+
 
                 if header.startswith("TEXT|"):
                     message = header[5:]
                     history_port = port
 
+
                     if history_port == 0:
                         history_port = (
                             address[1]
                         )
+
 
                     self.save_history(
                         address[0],
@@ -253,10 +312,12 @@ class MessengerNetwork:
                         message
                     )
 
+
                     if self.on_message:
                         self.on_message(
                             message
                         )
+
 
                     self.broadcast(
                         client,
@@ -265,7 +326,9 @@ class MessengerNetwork:
                         )
                     )
 
+
                 # ---------- FILE ----------
+
 
                 elif header.startswith("FILE|"):
                     parts = header.split(
@@ -273,10 +336,13 @@ class MessengerNetwork:
                         2
                     )
 
+
                     if len(parts) != 3:
                         continue
 
+
                     filename = parts[1]
+
 
                     try:
                         size = int(
@@ -285,33 +351,40 @@ class MessengerNetwork:
                     except:
                         continue
 
+
                     file_data = self.receive_file_data(
                         client,
                         size
                     )
+
 
                     saved_name = self.save_received_file(
                         filename,
                         file_data
                     )
 
+
                     message = (
                         "Получен файл: " +
                         saved_name
                     )
 
+
                     history_port = port
+
 
                     if history_port == 0:
                         history_port = (
                             address[1]
                         )
 
+
                     self.save_history(
                         address[0],
                         history_port,
                         message
                     )
+
 
                     if self.on_file:
                         self.on_file(
@@ -322,10 +395,12 @@ class MessengerNetwork:
                             )
                         )
 
+
                     if self.on_message:
                         self.on_message(
                             message
                         )
+
 
                     self.broadcast_file(
                         client,
@@ -333,15 +408,18 @@ class MessengerNetwork:
                         file_data
                     )
 
+
         except Exception as error:
             print(
                 "Ошибка клиента:",
                 error
             )
 
+
         self.remove_client(
             client
         )
+
 
         try:
             client.close()
@@ -350,13 +428,16 @@ class MessengerNetwork:
         if self.on_disconnect:
             self.on_disconnect()
 
+
     # ================= RECEIVE CLIENT =================
+
 
     def receive_loop(
         self,
         sock,
         address
     ):
+
 
         while self.client_running:
             try:
@@ -366,10 +447,13 @@ class MessengerNetwork:
                 if not header:
                     break
 
+
                 # ---------- MESSAGE ----------
+
 
                 if header.startswith("TEXT|"):
                     message = header[5:]
+
 
                     self.save_history(
                         address[0],
@@ -377,12 +461,15 @@ class MessengerNetwork:
                         message
                     )
 
+
                     if self.on_message:
                         self.on_message(
                             message
                         )
 
+
                 # ---------- FILE ----------
+
 
                 elif header.startswith("FILE|"):
                     parts = header.split(
@@ -390,10 +477,13 @@ class MessengerNetwork:
                         2
                     )
 
+
                     if len(parts) != 3:
                         continue
 
+
                     filename = parts[1]
+
 
                     try:
                         size = int(
@@ -402,26 +492,31 @@ class MessengerNetwork:
                     except:
                         continue
 
+
                     file_data = self.receive_file_data(
                         sock,
                         size
                     )
+
 
                     saved_name = self.save_received_file(
                         filename,
                         file_data
                     )
 
+
                     message = (
                         "Получен файл: " +
                         saved_name
                     )
+
 
                     self.save_history(
                         address[0],
                         address[1],
                         message
                     )
+
 
                     if self.on_file:
                         self.on_file(
@@ -442,21 +537,28 @@ class MessengerNetwork:
                 )
                 break
 
+
         if self.on_disconnect:
+
 
             self.on_disconnect()
 
+
     # ================= RECEIVE LINE =================
+
 
     def recv_line(
         self,
         sock
     ):
 
+
         data = b""
+
 
         while True:
             part = sock.recv(1)
+
 
             if not part:
                 raise ConnectionError(
@@ -469,7 +571,9 @@ class MessengerNetwork:
             "utf-8"
         )
 
+
     # ================= RECEIVE FILE DATA =================
+
 
     def receive_file_data(
         self,
@@ -477,6 +581,7 @@ class MessengerNetwork:
         size
     ):
         data = b""
+
 
         while len(data) < size:
             part = sock.recv(
@@ -486,6 +591,7 @@ class MessengerNetwork:
                 )
             )
 
+
             if not part:
                 raise ConnectionError(
                     "Соединение закрыто во время передачи файла"
@@ -493,7 +599,9 @@ class MessengerNetwork:
             data += part
         return data
 
+
     # ================= SEND MESSAGE =================
+
 
     def send_text(
         self,
@@ -501,9 +609,11 @@ class MessengerNetwork:
         message
     ):
 
+
         text = (
             f"{sender}: {message}"
         )
+
 
         data = (
                 "TEXT|" + text + "\n"
@@ -511,11 +621,20 @@ class MessengerNetwork:
             "utf-8"
         )
 
+
+        # Если мы сервер — шлём всем подключённым клиентам
+        if not self.sock and self.server_running:
+            self.broadcast(None, data)
+            return
+
+
+        # Если мы клиент — шлём на сервер
         if self.sock:
             try:
                 self.sock.sendall(
                     data
                 )
+
 
                 self.save_history(
                     self.partner_ip,
@@ -528,7 +647,9 @@ class MessengerNetwork:
                     error
                 )
 
+
     # ================= BROADCAST =================
+
 
     def broadcast(
         self,
@@ -536,15 +657,19 @@ class MessengerNetwork:
         data
     ):
 
+
         with self.clients_lock:
             clients = list(
                 self.clients
             )
 
+
         for user in clients:
             client = user["socket"]
 
+
             if client == sender_socket:
+
 
                 continue
             try:
@@ -556,21 +681,26 @@ class MessengerNetwork:
                     client
                 )
 
+
     # ================= SEND FILE =================
+
 
     def send_file(
         self,
         filepath
     ):
 
+
         if not os.path.exists(
             filepath
         ):
             return
 
+
         filename = os.path.basename(
             filepath
         )
+
 
         with open(
             filepath,
@@ -578,9 +708,11 @@ class MessengerNetwork:
         ) as file:
             file_data = file.read()
 
+
         size = len(
             file_data
         )
+
 
         header = (
             f"FILE|{filename}|{size}\n"
@@ -588,6 +720,18 @@ class MessengerNetwork:
             "utf-8"
         )
 
+
+        # Если мы сервер — шлём всем подключённым клиентам
+        if not self.sock and self.server_running:
+            self.broadcast_file(
+                None,
+                filename,
+                file_data
+            )
+            return
+
+
+        # Если мы клиент — шлём на сервер
         if self.sock:
             try:
                 self.sock.sendall(
@@ -597,13 +741,16 @@ class MessengerNetwork:
                     file_data
                 )
 
+
             except Exception as error:
                 print(
                     "Ошибка отправки файла:",
                     error
                 )
 
+
     # ================= BROADCAST FILE =================
+
 
     def broadcast_file(
         self,
@@ -612,6 +759,7 @@ class MessengerNetwork:
         file_data
     ):
 
+
         header = (
             f"FILE|{filename}|"
             f"{len(file_data)}\n"
@@ -619,13 +767,16 @@ class MessengerNetwork:
             "utf-8"
         )
 
+
         with self.clients_lock:
             clients = list(
                 self.clients
             )
 
+
         for user in clients:
             client = user["socket"]
+
 
             if client == sender_socket:
                 continue
@@ -633,6 +784,7 @@ class MessengerNetwork:
                 client.sendall(
                     header
                 )
+
 
                 client.sendall(
                     file_data
@@ -642,7 +794,9 @@ class MessengerNetwork:
                     client
                 )
 
+
     # ================= SAVE FILE =================
+
 
     def save_received_file(
         self,
@@ -650,53 +804,66 @@ class MessengerNetwork:
         data
     ):
 
+
         safe_name = os.path.basename(
             filename
         )
 
+
         path = self.get_unique_filename(
             safe_name
         )
+
 
         with open(
             path,
             "wb"
         ) as file:
 
+
             file.write(
                 data
             )
+
 
         return os.path.basename(
             path
         )
 
+
     # ================= UNIQUE FILE NAME =================
+
 
     def get_unique_filename(
         self,
         filename
     ):
 
+
         name, extension = os.path.splitext(
             filename
         )
+
 
         path = os.path.join(
             SAVE_DIR,
             filename
         )
 
+
         number = 1
+
 
         while os.path.exists(
             path
         ):
 
+
             new_name = (
                 f"{name}_{number}"
                 f"{extension}"
             )
+
 
             path = os.path.join(
                 SAVE_DIR,
@@ -705,7 +872,9 @@ class MessengerNetwork:
             number += 1
         return path
 
+
     # ================= HISTORY =================
+
 
     def get_history_path(
         self,
@@ -713,14 +882,17 @@ class MessengerNetwork:
         port
     ):
 
+
         filename = (
             f"{ip}_{port}.txt"
         )
+
 
         return os.path.join(
             CHAT_DIR,
             filename
         )
+
 
     def save_history(
         self,
@@ -729,13 +901,16 @@ class MessengerNetwork:
         message
     ):
 
+
         if not ip or not port:
             return
+
 
         path = self.get_history_path(
             ip,
             port
         )
+
 
         with open(
             path,
@@ -743,9 +918,11 @@ class MessengerNetwork:
             encoding="utf-8"
         ) as file:
 
+
             file.write(
                 message + "\n"
             )
+
 
     def load_history(
         self,
@@ -753,15 +930,18 @@ class MessengerNetwork:
         port
     ):
 
+
         path = self.get_history_path(
             ip,
             port
         )
 
+
         if not os.path.exists(
             path
         ):
             return ""
+
 
         with open(
             path,
@@ -770,7 +950,9 @@ class MessengerNetwork:
         ) as file:
             return file.read()
 
+
     # ================= REMOVE CLIENT =================
+
 
     def remove_client(
         self,
@@ -788,12 +970,16 @@ class MessengerNetwork:
         except:
             pass
 
+
     # ================= CLOSE =================
+
 
     def close(self):
 
+
         self.server_running = False
         self.client_running = False
+
 
         if self.sock:
             try:
@@ -802,6 +988,7 @@ class MessengerNetwork:
                 pass
             self.sock = None
 
+
         if self.server:
             try:
                 self.server.close()
@@ -809,11 +996,13 @@ class MessengerNetwork:
                 pass
             self.server = None
 
+
         with self.clients_lock:
             clients = list(
                 self.clients
             )
             self.clients.clear()
+
 
         for user in clients:
             try:
