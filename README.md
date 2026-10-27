@@ -4,7 +4,7 @@
 
 ### О проекте
 
-**Корпоративный мессенджер** — это приложение для обмена текстовыми сообщениями и файлами между пользователями в локальной сети.
+**Корпоративный мессенджер** - это приложение для обмена текстовыми сообщениями и файлами между пользователями в локальной сети.
 
 Программа разработана на языке **Python** с использованием библиотеки **Tkinter** для графического интерфейса, **Socket** для сетевого обмена и **SQLite** для хранения информации о ранее подключенных устройствах.
 
@@ -28,11 +28,11 @@
 ### Используемые технологии
 
 - **Python 3**
-- **Tkinter** — графический интерфейс;
-- **Socket / TCP** — сетевое соединение;
-- **Threading** — обработка нескольких подключений;
-- **SQLite** — хранение IP-адресов и портов;
-- **OS** — работа с файлами и папками.
+- **Tkinter** - графический интерфейс;
+- **Socket / TCP** - сетевое соединение;
+- **Threading** - обработка нескольких подключений;
+- **SQLite** - хранение IP-адресов и портов;
+- **OS** - работа с файлами и папками.
 
 ### Структура проекта
 
@@ -162,11 +162,11 @@ The application can work as both a **server and a client**. The server accepts c
 ### Technologies
 
 - **Python 3**
-- **Tkinter** — graphical user interface;
-- **Socket / TCP** — network communication;
-- **Threading** — handling multiple connections;
-- **SQLite** — storing IP addresses and ports;
-- **OS** — file and directory management.
+- **Tkinter** - graphical user interface;
+- **Socket / TCP** - network communication;
+- **Threading** - handling multiple connections;
+- **SQLite** - storing IP addresses and ports;
+- **OS** - file and directory management.
 
 ### Project structure
 
